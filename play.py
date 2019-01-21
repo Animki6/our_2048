@@ -1,24 +1,43 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import csv
 import gym
 import numpy as np
 import cPickle as pickle
 import gym_2048
-
-do_render = False
-resume = False
-
+import json
+from pprint import pprint
+import sys
 
 class Learning2048:
     def __init__(self):
+        # Default configuration
         self.gamma = 0.99  # rewards in backpropagation calculating coefficient
-        self.size = 4
-        self.x_size = self.size**2
         self.hlayer_neurons_number = 200
-        self.actions_number = 4
         self.update_interval = 10  # co ile gier robić update'a
         self.decay_rate = 0.8  # decay factor for rmsprop lieaky sum of grad^2
         self.learning_rate = 0.01
+        self.resume = False
+        self.do_render = False
+        config_parameters = self.__dict__.keys()
+        # Read configuration from file
+        try:
+            with open('config.json') as f:
+                for param, val in json.load(f).iteritems():
+                    if param in config_parameters:
+                        print("INFO: Setting parameter '{}' to '{}'.".format(param, val))
+                        setattr(self, param, val)
+        except json.JSONDecodeError as e:
+            print("WARNING: Failed to decode configuration JSON file.")
+        except IOError as e:
+            print("WARNING: Failed to open configuration JSON file.")
+        except KeyError as e:
+            print("WARNING: Ignoring configuration parameter '{}'.".format(e.args[0]))
+
+        # Other initialization stuff
+        self.size = 4
+        self.x_size = self.size**2
+        self.actions_number = 4
         self.epx, self.eph, self.epdlogp, self.epr = [], [], [], []
         self.illegal_actions = []
         self.illegal_moves_count = 0
@@ -28,7 +47,7 @@ class Learning2048:
         self.game_moves = 0
         self.game_number = 0
 
-        if resume:
+        if self.resume:
             self.model = pickle.load(open('save.p', 'rb'))
         else:
             self.model = {}
@@ -110,7 +129,7 @@ class Learning2048:
 
 
         while True:
-            if do_render:
+            if self.do_render:
                 env.render()
 
             # policy_forward - czyli obliczenie na podstawie aktualniego wejscia i stanu sieci
@@ -154,6 +173,8 @@ class Learning2048:
                 fuzzy_rewards = self.propagate_rewards(self.epr)
                 # standardize the rewards to be unit normal (helps control the gradient estimator variance)
                 fuzzy_rewards -= np.mean(fuzzy_rewards)
+                # print("fuzzy_rewards = {}".format(fuzzy_rewards))
+                # print("np.std(fuzzy_rewards) = {}".format(np.std(fuzzy_rewards)))
                 fuzzy_rewards /= np.std(fuzzy_rewards)
 
                 # (y - approx) = (y - approx) * fuzzy_rewards

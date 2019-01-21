@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """ implements a simple policy gradient (actor critic technically) agent """
 import os
 import argparse
@@ -7,10 +8,8 @@ from gym.spaces import Discrete
 import gym_2048
 import numpy as np
 from scipy.signal import lfilter
-from scipy.misc import imsave, imresize
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-import cPickle as pickle
 
 parser = argparse.ArgumentParser(description=None)
 parser.add_argument('-b', '--batch_size', default=10000, type=int, help='batch size to use during learning')
@@ -21,8 +20,6 @@ parser.add_argument('-c', '--gradient_clip', default=40.0, type=float, help='cli
 parser.add_argument('-v', '--value_scale', default=0.5, type=float, help='scale of value function regression in loss')
 parser.add_argument('-t', '--entropy_scale', default=0, type=float, help='scale of entropy penalty in loss')
 parser.add_argument('-m', '--max_steps', default=10000, type=int, help='max number of steps to run for')
-parser.add_argument('-s', '--save_interval', default=20, type=int, help='save model state every * updates')
-parser.add_argument('-r', '--resume', default=None, type=str, help='resume evaluating model from given folder')
 args = parser.parse_args()
 print(args)
 
@@ -157,7 +154,7 @@ if args.resume is not None:
 n = 0
 mean_rewards = []
 while n <= args.max_steps: # loop forever
-    n += 1
+  n += 1
 
     # collect a batch of data from rollouts and do forward/backward/update
     t0 = time.time()
