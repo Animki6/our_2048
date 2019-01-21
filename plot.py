@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.signal import lfilter, butter, filtfilt, medfilt
-from statsmodels.nonparametric.smoothers_lowess import lowess
 import argparse
 import sys
 import colorsys
