@@ -20,6 +20,8 @@ parser.add_argument('-c', '--gradient_clip', default=40.0, type=float, help='cli
 parser.add_argument('-v', '--value_scale', default=0.5, type=float, help='scale of value function regression in loss')
 parser.add_argument('-t', '--entropy_scale', default=0, type=float, help='scale of entropy penalty in loss')
 parser.add_argument('-m', '--max_steps', default=10000, type=int, help='max number of steps to run for')
+parser.add_argument('-s', '--save_interval', default=20, type=int, help='number of updates between saving model')
+parser.add_argument('-r', '--resume', default=None, type=str, help='directory when saved model state is located (.ckpt file)')
 args = parser.parse_args()
 print(args)
 
@@ -155,28 +157,25 @@ n = 0
 mean_rewards = []
 while n <= args.max_steps: # loop forever
   n += 1
+  # collect a batch of data from rollouts and do forward/backward/update
+  t0 = time.time()
+  observations, actions, rewards, discounted_reward_np, info = rollout(args.batch_size)
+  t1 = time.time()
+  sess.run(train_op, feed_dict={x:observations, sampled_actions:actions, discounted_reward:discounted_reward_np})
+  t2 = time.time()
+  if n % args.save_interval == 0:
+      print('****** Saving model state into %s ********' % model_state_file_path)
 
-    # collect a batch of data from rollouts and do forward/backward/update
-    t0 = time.time()
-    observations, actions, rewards, discounted_reward_np, info = rollout(args.batch_size)
-    t1 = time.time()
-    sess.run(train_op, feed_dict={x:observations, sampled_actions:actions, discounted_reward:discounted_reward_np})
-    t2 = time.time()
-    if n % args.save_interval == 0:
-        print('****** Saving model state into %s ********' % model_state_file_path)
+      ohSaver = tf.train.Saver()
+      ohSaver.save(sess, model_state_file_path)
 
-        ohSaver = tf.train.Saver()
-        ohSaver.save(sess, model_state_file_path)
-
-
-
-    average_reward = np.sum(rewards)/info['num_episodes']
-    mean_rewards.append(average_reward)
-    print('step %d: collected %d frames in %fs, mean episode reward = %f (%d eps), update in %fs, max: %d' % \
-          (n, observations.shape[0], t1-t0, average_reward, info['num_episodes'], t2-t1, max(observations[-1][0][0])))
-    to_watch = np.array(observations[-1][0][0])
-    to_watch = to_watch.reshape((4, 4))
-    print(to_watch)
+  average_reward = np.sum(rewards)/info['num_episodes']
+  mean_rewards.append(average_reward)
+  print('step %d: collected %d frames in %fs, mean episode reward = %f (%d eps), update in %fs, max: %d' % \
+        (n, observations.shape[0], t1-t0, average_reward, info['num_episodes'], t2-t1, max(observations[-1][0][0])))
+  to_watch = np.array(observations[-1][0][0])
+  to_watch = to_watch.reshape((4, 4))
+  print(to_watch)
 
 print(args)
 print('total average reward: %f +/- %f (min %f, max %f)' % \
