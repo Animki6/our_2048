@@ -1,5 +1,5 @@
 """ implements a simple policy gradient (actor critic technically) agent """
-
+import os
 import argparse
 import gym
 import time
@@ -10,9 +10,9 @@ from scipy.signal import lfilter
 from scipy.misc import imsave, imresize
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
+import cPickle as pickle
 
 parser = argparse.ArgumentParser(description=None)
-parser.add_argument('-e', '--env', default='Breakout-v3', type=str, help='gym environment')
 parser.add_argument('-b', '--batch_size', default=10000, type=int, help='batch size to use during learning')
 parser.add_argument('-l', '--learning_rate', default=0.001, type=float, help='used for Adam')
 parser.add_argument('-g', '--discount', default=0.99, type=float, help='reward discount rate to use')
@@ -21,21 +21,26 @@ parser.add_argument('-c', '--gradient_clip', default=40.0, type=float, help='cli
 parser.add_argument('-v', '--value_scale', default=0.5, type=float, help='scale of value function regression in loss')
 parser.add_argument('-t', '--entropy_scale', default=0, type=float, help='scale of entropy penalty in loss')
 parser.add_argument('-m', '--max_steps', default=10000, type=int, help='max number of steps to run for')
+parser.add_argument('-s', '--save_interval', default=20, type=int, help='save model state every * updates')
+parser.add_argument('-r', '--resume', default=None, type=str, help='resume evaluating model from given folder')
 args = parser.parse_args()
 print(args)
 
-csv_filename = 'nn_wyniki'+time.strftime('%d_%m_%H_%M')+str(args.learning_rate)+'.csv'
+if args.resume is not None:
+  current_run_folder_path = args.resume
+else:
+  current_run_folder_path = time.strftime('%d_%m_%H_%M')
+  if not os.path.exists(current_run_folder_path):
+    os.makedirs(current_run_folder_path)
+
+csv_filepath = os.path.join(current_run_folder_path, 'learning_results.csv')
+model_info_filepath = os.path.join(current_run_folder_path, 'model_info.txt')
+model_state_file_path = os.path.join(current_run_folder_path, 'model_state.ckpt')
+
+with open(model_info_filepath, 'w') as info_file:
+  info_file.write(str(args))
 
 # -----------------------------------------------------------------------------
-def process_frame(frame):
-    """ Atari specific preprocessing, consistent with DeepMind """
-    reshaped_screen = frame.astype(np.float32).mean(2)      # grayscale
-    resized_screen = imresize(reshaped_screen, (84, 110)) # downsample
-    x = resized_screen[18:102, :]                           # crop top/bottom
-    x = imresize(x, (42, 42)).astype(np.float32)                             # downsample
-    x *= (1.0 / 255.0)                                      # place in [0,1]
-    x = np.reshape(x, [42, 42, 1])                          # introduce channel
-    return x
 
 def policy_spec(x):
   net = slim.conv2d(x, args.hidden_size, [5, 5], stride=2, padding='SAME', activation_fn=tf.nn.elu, scope='conv1')
@@ -96,7 +101,7 @@ def rollout(n, max_steps_per_episode=4500):
       # print(obf.max(axis=2))
       num_episodes += 1
       # saving to csv
-      with open(csv_filename, 'a') as file:
+      with open(csv_filepath, 'a') as file:
         file.write(','.join([str(num_episodes), str(ep_steps), str(illegal_moves_count), str(obf.max(axis=2)[0][0]), str(reward_sum)]))
         file.write('\n')
       ep_steps = 0
@@ -143,27 +148,38 @@ grads_and_vars = list(zip(grads, tf.trainable_variables()))
 train_op = optimizer.apply_gradients(grads_and_vars)
 
 # tf init
+ohSaver = tf.train.Saver()
 sess = tf.Session()
 sess.run(tf.initialize_all_variables())
+if args.resume is not None:
+  ohSaver.restore(sess, model_state_file_path)
+
 n = 0
 mean_rewards = []
 while n <= args.max_steps: # loop forever
-  n += 1
+    n += 1
 
-  # collect a batch of data from rollouts and do forward/backward/update
-  t0 = time.time()
-  observations, actions, rewards, discounted_reward_np, info = rollout(args.batch_size)
-  t1 = time.time()
-  sess.run(train_op, feed_dict={x:observations, sampled_actions:actions, discounted_reward:discounted_reward_np})
-  t2 = time.time()
+    # collect a batch of data from rollouts and do forward/backward/update
+    t0 = time.time()
+    observations, actions, rewards, discounted_reward_np, info = rollout(args.batch_size)
+    t1 = time.time()
+    sess.run(train_op, feed_dict={x:observations, sampled_actions:actions, discounted_reward:discounted_reward_np})
+    t2 = time.time()
+    if n % args.save_interval == 0:
+        print('****** Saving model state into %s ********' % model_state_file_path)
 
-  average_reward = np.sum(rewards)/info['num_episodes']
-  mean_rewards.append(average_reward)
-  print('step %d: collected %d frames in %fs, mean episode reward = %f (%d eps), update in %fs, max: %d' % \
-        (n, observations.shape[0], t1-t0, average_reward, info['num_episodes'], t2-t1, max(observations[-1][0][0])))
-  to_watch = np.array(observations[-1][0][0])
-  to_watch = to_watch.reshape((4, 4))
-  print(to_watch)
+        ohSaver = tf.train.Saver()
+        ohSaver.save(sess, model_state_file_path)
+
+
+
+    average_reward = np.sum(rewards)/info['num_episodes']
+    mean_rewards.append(average_reward)
+    print('step %d: collected %d frames in %fs, mean episode reward = %f (%d eps), update in %fs, max: %d' % \
+          (n, observations.shape[0], t1-t0, average_reward, info['num_episodes'], t2-t1, max(observations[-1][0][0])))
+    to_watch = np.array(observations[-1][0][0])
+    to_watch = to_watch.reshape((4, 4))
+    print(to_watch)
 
 print(args)
 print('total average reward: %f +/- %f (min %f, max %f)' % \
