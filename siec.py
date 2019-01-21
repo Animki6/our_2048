@@ -8,7 +8,6 @@ from gym.spaces import Discrete
 import gym_2048
 import numpy as np
 from scipy.signal import lfilter
-from scipy.misc import imsave, imresize
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
@@ -28,15 +27,15 @@ print(args)
 csv_filename = 'nn_wyniki'+time.strftime('%d_%m_%H_%M')+str(args.learning_rate)+'.csv'
 
 # -----------------------------------------------------------------------------
-def process_frame(frame):
-    """ Atari specific preprocessing, consistent with DeepMind """
-    reshaped_screen = frame.astype(np.float32).mean(2)      # grayscale
-    resized_screen = imresize(reshaped_screen, (84, 110)) # downsample
-    x = resized_screen[18:102, :]                           # crop top/bottom
-    x = imresize(x, (42, 42)).astype(np.float32)                             # downsample
-    x *= (1.0 / 255.0)                                      # place in [0,1]
-    x = np.reshape(x, [42, 42, 1])                          # introduce channel
-    return x
+#def process_frame(frame):
+#    """ Atari specific preprocessing, consistent with DeepMind """
+#    reshaped_screen = frame.astype(np.float32).mean(2)      # grayscale
+#    resized_screen = imresize(reshaped_screen, (84, 110)) # downsample
+#    x = resized_screen[18:102, :]                           # crop top/bottom
+#    x = imresize(x, (42, 42)).astype(np.float32)                             # downsample
+#    x *= (1.0 / 255.0)                                      # place in [0,1]
+#    x = np.reshape(x, [42, 42, 1])                          # introduce channel
+#    return x
 
 def policy_spec(x):
   net = slim.conv2d(x, args.hidden_size, [5, 5], stride=2, padding='SAME', activation_fn=tf.nn.elu, scope='conv1')
