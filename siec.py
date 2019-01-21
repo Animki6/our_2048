@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """ implements a simple policy gradient (actor critic technically) agent """
 
 import argparse
