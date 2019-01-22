@@ -16,16 +16,20 @@ def clamp(n, minn, maxn):
 ### PARSE ARGUMENTS
 parser = argparse.ArgumentParser(description=None)
 parser.add_argument('-v', '--version', default=1, type=int, help='')
+parser.add_argument('file', type=str, nargs='?', help='input csv file')
 args = parser.parse_args()
 if args.version <= 0:
-    print("Error: version number must be 1 or higher.")
+    print("Error: version number must be 1 or '?'.")
     sys.exit(1)
 v = args.version
 print("Using plotter version {}.".format(v))
 
 ### READ DATA
 headers = ["#", "#moves", "#illegal", "max", "rewards"]
-dat = pd.read_csv('test.csv', names=headers)
+if args.file is None:
+    print("Error: provide a file.")
+    sys.exit(1)
+dat = pd.read_csv(args.file, names=headers)
 dif = [0] + [j-i for i, j in zip(dat["rewards"][:-1], dat["rewards"][1:])]
 fig = plt.figure()
 
@@ -85,3 +89,4 @@ else:
 
 ### SHOW RESULTS
 plt.show()
+fig.savefig(args.file + ".png")
