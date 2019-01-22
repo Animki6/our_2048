@@ -11,6 +11,12 @@ from scipy.signal import lfilter
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
+def check_positive(value):
+    ivalue = int(value)
+    if ivalue <= 0:
+        raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
+    return ivalue
+
 parser = argparse.ArgumentParser(description=None)
 parser.add_argument('-b', '--batch_size', default=10000, type=int, help='batch size to use during learning')
 parser.add_argument('-l', '--learning_rate', default=0.001, type=float, help='used for Adam')
@@ -22,6 +28,7 @@ parser.add_argument('-t', '--entropy_scale', default=0, type=float, help='scale 
 parser.add_argument('-m', '--max_steps', default=10000, type=int, help='max number of steps to run for')
 parser.add_argument('-s', '--save_interval', default=20, type=int, help='number of updates between saving model')
 parser.add_argument('-r', '--resume', default=None, type=str, help='directory when saved model state is located (.ckpt file)')
+parser.add_argument('-p', '--policy', default=0, type=check_positive, help='policy (can be 0 and up)')
 args = parser.parse_args()
 print(args)
 
@@ -45,6 +52,12 @@ def policy_spec(x):
   net = slim.conv2d(x, args.hidden_size, [5, 5], stride=2, padding='SAME', activation_fn=tf.nn.elu, scope='conv1')
   net = slim.conv2d(net, args.hidden_size, [5, 5], stride=2, padding='SAME', activation_fn=tf.nn.elu, scope='conv2')
   net = slim.flatten(net)
+  action_logits = slim.fully_connected(net, num_actions, activation_fn=None, scope='fc_act')
+  value_function = slim.fully_connected(net, 1, activation_fn=None, scope='fc_value')
+  return action_logits, value_function
+
+def policy_spec_simpler(x):
+  net = slim.fully_connected(x, args.hidden_size)
   action_logits = slim.fully_connected(net, num_actions, activation_fn=None, scope='fc_act')
   value_function = slim.fully_connected(net, 1, activation_fn=None, scope='fc_value')
   return action_logits, value_function
@@ -126,7 +139,12 @@ env = gym.make('2048-v0')
 num_actions = 4
 # compile the model
 x = tf.placeholder(tf.float32, (None,) + (1, 1,16), name='x')
-action_logits, value_function = policy_spec(x)
+
+if args.policy == 0:
+    action_logits, value_function = policy_spec(x)
+else:
+    action_logits, value_function = policy_spec_simpler(x)
+
 action_index = tf.multinomial(action_logits - tf.reduce_max(action_logits, 1, keep_dims=True), 1) # take 1 sample
 # compile the loss: 1) the policy gradient
 sampled_actions = tf.placeholder(tf.int32, (None,), name='sampled_actions')
