@@ -5,7 +5,7 @@ echo "Found '$d'"
 
 while true; do
   cp $d/learning_results.csv test.csv
-  ./plot.py -v 2 &
+  ./plot.py -v 3 &
   pid=$!
   sleep 5m
   kill $pid

@@ -31,14 +31,17 @@ fig = plt.figure()
 
 ### ADD SCORE PLOT
 ax = fig.add_subplot(1, 2, 1)
-a, b = np.polyfit(dat.index, dat['rewards'], 1)
-dif_regr = [a*x+b for x in dat.index]
+if v > 1:
+    ax.set_ylim([round(min(dat['rewards'])-500,-3),round(max(dat['rewards'])+500,-3)])
+    ax.set_xlim([dat.index[0], dat.index[-1]])
+# a, b = np.polyfit(dat.index, dat['rewards']) # TODO: Regression does not work
+# dif_regr = [a*x+b for x in dat.index] # TODO
 med_dif_regr = medfilt(dat['rewards'], 49)
 hard_med_dif_regr = medfilt(dat['rewards'], 599)
 ax.plot(dat.index, dat['rewards'], color='#b4cfef')
 ax.plot(dat.index, med_dif_regr, color='#5b8bc3')
 ax.plot(dat.index, hard_med_dif_regr, color='#235899')
-ax.plot(dat.index, dif_regr, color='red')
+# ax.plot(dat.index, dif_regr, color='red') # TODO
 
 ### ADD TILE SCATTER PLOT
 ax = fig.add_subplot(1, 2, 2)
@@ -66,30 +69,18 @@ else:
     for x in trange:
         print("Processing tile {}.".format(2**x))
         is_tile = [float(i) for i in (x == logmax)]
-        r = 100 # Mean frame size - tweak me!
+        r = 100 # Frame size - tweak me!
         filtered = [sum(is_tile[slice(i-r, i+r)])/float(r) for i in range(len(is_tile))] # TODO: check bounduaries?
-        # colors = [colorsys.hsv_to_rgb(0, 1, clamp(0.1+x/1.6, 0, 1)) for x in filtered]
-        s = 20 # Scaling factor - tweak me!
-        # filtered_scaled = [s*x for x in filtered]
-        # print(filtered + filtered[::-1])
-        # print(dat.index + dat.index[::-1])
-        # print(list(zip(filtered + filtered[::-1], dat.index + dat.index[::-1])))
+        s = 0.5 # Scaling factor - tweak me!
+        filtered_scaled = [s*i for i in filtered]
+        filtered_top = [x+i for i in filtered_scaled]
+        filtered_bottom = [x-i for i in filtered_scaled]
         xs = list(range(len(logmax))) + list(range(len(logmax))[::-1])
-        # print(xs)
-        ys = [s*x for x in (filtered + filtered[::-1])]
-        print(ys)
+        ys = filtered_top + filtered_bottom[::-1]
         polys.append(Polygon(list(zip(xs, ys))))
-        # print(list(zip(xs, ys)))
-        # for x,y in zip(xs, ys):
-        #     print("({},{})".format(x,y), end='')
-        break
-    # ax.scatter(dat.index, len(dat.index)*[x], s=filtered_scaled, marker='|', color=colors)
-    polys.append(Polygon([[0,12], [100, 12], [100, 0], [0, 0]]))
     p = PatchCollection(polys, cmap=cm.jet)
-    colors = 100*np.random.rand(len(polys))
-    p.set_array(np.array(colors))
-    # colors = 100*np.random.rand(len(patches))
-    # p.set_array(np.array(colors))
+    ax.set_ylim([trange[0] - 0.5, trange[-1] + 0.5])
+    ax.set_xlim([dat.index[0], dat.index[-1]])
     ax.add_collection(p)
 
 ### SHOW RESULTS
