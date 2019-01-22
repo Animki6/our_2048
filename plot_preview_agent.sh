@@ -1,6 +1,6 @@
 #!/bin/bash
 
-d=`find . -name '*_*_*_*' -type d | tail -n1`
+d=`find . -name '*_*_*_*' -type d | head -n1`
 echo "Found '$d'"
 
 while true; do
